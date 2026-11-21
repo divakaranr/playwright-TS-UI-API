@@ -1,0 +1,11 @@
+node_modules
+dist
+reports
+test-results
+playwright-report
+blob-report
+generated-tests
+logs
+.auth
+package-lock.json
+Implementation-prompt.md

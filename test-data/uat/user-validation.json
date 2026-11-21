@@ -1,0 +1,25 @@
+{
+  "invalidPayloads": [
+    {
+      "name": "invalid e-mail format",
+      "payload": { "firstName": "Ivy", "lastName": "Invalid", "email": "not-an-email", "role": "viewer" },
+      "expectedStatus": 400,
+      "expectedFields": ["email"]
+    },
+    {
+      "name": "unsupported role",
+      "payload": {
+        "firstName": "Rita",
+        "lastName": "Role",
+        "email": "rita.role@qa-auto.example.com",
+        "role": "superuser"
+      },
+      "expectedStatus": 400,
+      "expectedFields": ["role"]
+    }
+  ],
+  "boundaries": {
+    "nameMaxLength": 50,
+    "pageSizeMax": 100
+  }
+}

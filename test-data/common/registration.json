@@ -1,0 +1,4 @@
+{
+  "countries": ["India", "Germany", "United Kingdom", "United States"],
+  "weakPasswords": ["short1!", "alllowercase1!", "NoDigitsHere!", "NoSymbol123"]
+}

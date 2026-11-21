@@ -1,0 +1,22 @@
+# Normalise line endings: LF in the repository and in every working copy
+# (matches Prettier's "endOfLine": "lf" and the Linux CI/Docker images,
+# independent of each developer's core.autocrlf setting).
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary files – never touch
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.webm binary
+*.zip binary
+*.pdf binary
+*.woff binary
+*.woff2 binary

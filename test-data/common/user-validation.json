@@ -1,0 +1,48 @@
+{
+  "invalidPayloads": [
+    {
+      "name": "invalid e-mail format",
+      "payload": { "firstName": "Ivy", "lastName": "Invalid", "email": "not-an-email", "role": "viewer" },
+      "expectedStatus": 400,
+      "expectedFields": ["email"]
+    },
+    {
+      "name": "unsupported role",
+      "payload": {
+        "firstName": "Rita",
+        "lastName": "Role",
+        "email": "rita.role@qa-auto.example.com",
+        "role": "superuser"
+      },
+      "expectedStatus": 400,
+      "expectedFields": ["role"]
+    },
+    {
+      "name": "wrong data type for firstName",
+      "payload": {
+        "firstName": 12345,
+        "lastName": "Type",
+        "email": "num.type@qa-auto.example.com",
+        "role": "viewer"
+      },
+      "expectedStatus": 400,
+      "expectedFields": ["firstName"]
+    },
+    {
+      "name": "unknown field (mass assignment attempt)",
+      "payload": {
+        "firstName": "Mass",
+        "lastName": "Assign",
+        "email": "mass.assign@qa-auto.example.com",
+        "role": "viewer",
+        "isSuperAdmin": true
+      },
+      "expectedStatus": 400,
+      "expectedFields": ["isSuperAdmin"]
+    }
+  ],
+  "boundaries": {
+    "nameMaxLength": 50,
+    "pageSizeMax": 100
+  }
+}

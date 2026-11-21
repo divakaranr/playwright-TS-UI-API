@@ -1,0 +1,150 @@
+# Azure DevOps pipeline – Playwright enterprise framework.
+# Secrets come from variable groups (Library) named "playwright-<environment>", e.g.
+#   playwright-qa: APP_ADMIN_USERNAME, APP_ADMIN_PASSWORD (secret), APP_VIEWER_USERNAME,
+#                  APP_VIEWER_PASSWORD (secret), API_CLIENT_ID, API_CLIENT_SECRET (secret)
+# Never store secrets in this file. The "local" environment uses the bundled demo app.
+
+trigger:
+  branches:
+    include: [main, develop]
+
+pr:
+  branches:
+    include: [main]
+
+schedules:
+  - cron: '0 2 * * 1-5'
+    displayName: Nightly full regression
+    branches:
+      include: [main]
+    always: true
+
+parameters:
+  - name: environment
+    displayName: Target environment
+    type: string
+    default: local
+    values: [local, dev, qa, uat, staging]
+  - name: suite
+    displayName: Test scope
+    type: string
+    default: smoke
+    values: [smoke, regression, full]
+  - name: browsers
+    displayName: Browser projects
+    type: object
+    default: [chromium, firefox, webkit]
+  - name: shards
+    displayName: Shards per browser
+    type: number
+    default: 2
+
+variables:
+  - name: CI
+    value: 'true'
+  - name: TEST_ENV
+    value: ${{ parameters.environment }}
+  - name: SKIP_TYPECHECK
+    value: 'true'
+  - name: npm_config_cache
+    value: $(Pipeline.Workspace)/.npm
+  - ${{ if eq(parameters.suite, 'smoke') }}:
+      - name: GREP
+        value: '@smoke|@critical'
+  - ${{ if eq(parameters.suite, 'regression') }}:
+      - name: GREP
+        value: '@regression|@smoke|@critical'
+  - ${{ if eq(parameters.suite, 'full') }}:
+      - name: GREP
+        value: '.'
+  - ${{ if ne(parameters.environment, 'local') }}:
+      - group: playwright-${{ parameters.environment }}
+  # The bundled demo app's built-in accounts (not secrets; only valid against the local demo app).
+  - ${{ if eq(parameters.environment, 'local') }}:
+      - name: APP_ADMIN_USERNAME
+        value: admin@demo.local
+      - name: APP_ADMIN_PASSWORD
+        value: 'Admin#12345'
+      - name: APP_VIEWER_USERNAME
+        value: viewer@demo.local
+      - name: APP_VIEWER_PASSWORD
+        value: 'Viewer#12345'
+      - name: API_CLIENT_ID
+        value: demo-client
+      - name: API_CLIENT_SECRET
+        value: demo-client-secret
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Validate
+    displayName: Build validation
+    jobs:
+      - job: quality
+        displayName: Typecheck, lint, audit, framework tests
+        steps:
+          - template: .azure/steps-setup.yml
+          - script: npm audit --audit-level=high
+            displayName: Dependency vulnerability check
+          - script: npm run typecheck
+            displayName: Type check
+          - script: npm run lint
+            displayName: Lint
+          - script: npm run format:check
+            displayName: Format check
+          - script: npm run build
+            displayName: Build
+          - script: npx playwright install --with-deps chromium
+            displayName: Install Chromium
+          - script: npx playwright test --project=framework-unit --project=framework-integration
+            displayName: Framework unit & integration tests
+            env:
+              TEST_ENV: local
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: reports/junit.xml
+              testRunTitle: Framework tests
+              failTaskOnFailedTests: true
+
+  - stage: Test
+    displayName: Test execution
+    dependsOn: Validate
+    jobs:
+      - job: api
+        displayName: API tests
+        steps:
+          - template: .azure/steps-setup.yml
+          - script: npx playwright test --project=api --grep "$(GREP)"
+            displayName: API tests
+            env:
+              APP_ADMIN_PASSWORD: $(APP_ADMIN_PASSWORD)
+              APP_VIEWER_PASSWORD: $(APP_VIEWER_PASSWORD)
+              API_CLIENT_SECRET: $(API_CLIENT_SECRET)
+          - template: .azure/steps-publish.yml
+            parameters:
+              name: api
+
+      - ${{ each browser in parameters.browsers }}:
+          - job: ui_${{ browser }}
+            displayName: UI ${{ browser }}
+            strategy:
+              parallel: ${{ parameters.shards }}
+            timeoutInMinutes: 60
+            steps:
+              - template: .azure/steps-setup.yml
+              - script: npx playwright install --with-deps ${{ browser }}
+                displayName: Install ${{ browser }}
+              - script: >
+                  npx playwright test tests/ui tests/e2e tests/integration
+                  --project=${{ browser }} --grep "$(GREP)"
+                  --shard=$(System.JobPositionInPhase)/$(System.TotalJobsInPhase)
+                displayName: UI, hybrid and integration tests
+                env:
+                  APP_ADMIN_PASSWORD: $(APP_ADMIN_PASSWORD)
+                  APP_VIEWER_PASSWORD: $(APP_VIEWER_PASSWORD)
+              - template: .azure/steps-publish.yml
+                parameters:
+                  name: ui-${{ browser }}-$(System.JobPositionInPhase)

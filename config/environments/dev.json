@@ -1,0 +1,27 @@
+{
+  "name": "dev",
+  "description": "Development environment (illustrative URLs - adapt to your application)",
+  "baseUrl": "https://dev.example.com",
+  "apiBaseUrl": "https://api-dev.example.com",
+  "readOnly": false,
+  "allowedWriteOperations": [],
+  "roles": ["admin", "viewer"],
+  "auth": {
+    "loginPath": "/auth/login",
+    "refreshPath": "/auth/refresh",
+    "tokenPath": "/oauth/token"
+  },
+  "timeouts": {
+    "testMs": 60000,
+    "expectMs": 10000,
+    "actionMs": 15000,
+    "navigationMs": 30000,
+    "apiMs": 30000
+  },
+  "api": {
+    "responseTimeThresholdMs": 3000
+  },
+  "features": {
+    "startDemoApp": false
+  }
+}
