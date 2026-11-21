@@ -50,6 +50,20 @@ Optional settings (`.env`): `CONSOLE_PORT`, `CONSOLE_ALLOWED_HOSTS`, `CONSOLE_RU
 `CONSOLE_ALLOW_PRIVATE_NETWORK`, `CONSOLE_SECRETS_FILE`, `CONSOLE_MASTER_KEY_FILE`, `CONSOLE_MASTER_KEY`
 (passphrase for containers/CI). Details: [docs/test-console.md](docs/test-console.md).
 
+## Hosted version (Vercel)
+
+The Test Console also runs as a public serverless app: users **sign in with Google**, bring their own LLM key
+(OpenRouter, OpenAI or Anthropic – kept only in their browser tab), describe what to test, watch the agent work in a
+serverless Chromium, and **download the generated tests as a ready-to-run Playwright project (.zip)**.
+
+```bash
+npm run web:dev     # local: http://localhost:3100 (needs GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / AUTH_SECRET)
+npm run web:build   # Vercel Build Output (.vercel/output) – Vercel runs this on every deploy
+```
+
+Runs are limited to ~4 minutes and tests are generated, not executed. Setup (Google OAuth client, Vercel env vars),
+security model and limits: [docs/web-app.md](docs/web-app.md).
+
 ## What is inside
 
 | Area          | Highlights                                                                                                                                                |
@@ -88,6 +102,7 @@ Optional settings (`.env`): `CONSOLE_PORT`, `CONSOLE_ALLOWED_HOSTS`, `CONSOLE_RU
 | `npm run mcp:server` / `mcp:server:dev` / `mcp:http` / `mcp:playwright` / `mcp:example` | MCP                                                   |
 | `npm run ai:check`                                                                      | LLM connectivity check                                |
 | `npm run console`                                                                       | Prompt-driven Test Console UI (http://localhost:4100) |
+| `npm run web:dev` / `web:build`                                                         | Hosted Test Console: local dev server / Vercel build  |
 | `npm run test:generated`                                                                | Run generated drafts (`CONSOLE_BASE_URL` required)    |
 | `npm run data:generate -- 20 editor`                                                    | Generate test users (JSON + CSV)                      |
 | `npm run reports:merge`                                                                 | Merge sharded blob reports                            |
@@ -112,6 +127,8 @@ src/mcp/server/          MCP server: tools, resources, prompts, security, stdio 
 src/mcp/client/          MCP client, config, connection manager
 src/agent/               Test Console agent loop, browser/draft tools, system prompt
 src/console/             Test Console server, UI, input guard, model settings, encrypted secret store
+src/web/                 hosted (Vercel) Test Console API: Google auth, serverless browser tools, run streaming
+web/public/              hosted Test Console UI (static)
 generated-tests/         AI-generated test drafts for review (git-ignored)
 .secrets/                encrypted Test Console settings (git-ignored)
 tests/ui|api|e2e|integration/   specifications
@@ -128,7 +145,7 @@ docs/                    architecture, setup, guides, MCP, AI, execution guideli
 [Architecture](docs/architecture.md) · [Setup](docs/setup.md) · [Framework guide](docs/framework-guide.md) ·
 [UI automation](docs/ui-automation.md) · [API automation](docs/api-automation.md) ·
 [MCP integration](docs/mcp-integration.md) · [AI integration](docs/ai-integration.md) ·
-[Test Console](docs/test-console.md) ·
+[Test Console](docs/test-console.md) · [Hosted app (Vercel)](docs/web-app.md) ·
 [Execution guidelines](docs/test-execution-guidelines.md) · [Troubleshooting](docs/troubleshooting.md)
 
 ## Dependencies (pinned in `package.json` + lockfile)
