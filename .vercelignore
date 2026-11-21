@@ -1,0 +1,12 @@
+# Allowlist: upload only what the hosted Test Console build needs.
+# The Vercel CLI does not read .gitignore – never upload .env, reports, auth state or test output.
+/*
+!/src
+!/web
+!/scripts
+!/config
+!/package.json
+!/package-lock.json
+!/tsconfig.json
+!/vercel.json
+!/.nvmrc
