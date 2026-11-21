@@ -15,6 +15,7 @@ export default tseslint.config(
       'generated-tests/**',
       'logs/**',
       '.auth/**',
+      '.vercel/**',
     ],
   },
   js.configs.recommended,
@@ -70,6 +71,31 @@ export default tseslint.config(
   {
     files: ['eslint.config.js'],
     ...tseslint.configs.disableTypeChecked,
+  },
+  {
+    // Hosted Test Console browser script (plain JS, served as-is).
+    files: ['web/public/**/*.js'],
+    ...tseslint.configs.disableTypeChecked,
+    languageOptions: {
+      ...tseslint.configs.disableTypeChecked.languageOptions,
+      sourceType: 'script',
+      globals: Object.fromEntries(
+        [
+          'window',
+          'document',
+          'fetch',
+          'location',
+          'history',
+          'Blob',
+          'URL',
+          'URLSearchParams',
+          'TextEncoder',
+          'TextDecoder',
+          'AbortController',
+          'setTimeout',
+        ].map((g) => [g, 'readonly']),
+      ),
+    },
   },
   prettier,
 );

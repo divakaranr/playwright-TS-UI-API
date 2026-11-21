@@ -31,3 +31,6 @@ Thumbs.db
 
 # Test Console encrypted settings (ciphertext; master key lives in ~/.playwright-test-console)
 .secrets/
+
+# Vercel build output / local project link
+.vercel/

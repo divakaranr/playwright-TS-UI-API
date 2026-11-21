@@ -12,3 +12,4 @@ generated-tests
 .playwright-mcp
 .git
 .secrets
+.vercel

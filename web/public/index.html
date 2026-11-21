@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Playwright Test Console</title>
+    <meta
+      name="description"
+      content="Describe what to test on a website – an AI agent explores it in a real browser and writes Playwright tests you can download."
+    />
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/app.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <h1>Playwright Test Console</h1>
+      <div class="header-right" id="userBox" hidden>
+        <span id="userEmail" class="pill"></span>
+        <button id="logout" type="button">Sign out</button>
+      </div>
+    </header>
+
+    <section id="signin" class="signin" hidden>
+      <h2>Generate Playwright tests from a prompt</h2>
+      <p>
+        Enter a website and describe what to test. An AI agent explores the site in a real browser, writes
+        Playwright tests and a report – you download the tests as a ready-to-run project.
+      </p>
+      <ul class="hint">
+        <li>Sign in with your Google account to continue.</li>
+        <li>
+          Bring your own LLM API key (OpenRouter, OpenAI or Anthropic). It stays in this browser tab and is
+          never stored on the server.
+        </li>
+        <li>Only test websites you own or are allowed to test.</li>
+      </ul>
+      <a class="button primary" id="googleSignIn" href="/api/auth/login">Sign in with Google</a>
+      <p class="err" id="authError" role="alert"></p>
+    </section>
+
+    <main id="app" hidden>
+      <section>
+        <h2>1 · Model</h2>
+        <label for="provider">Provider</label>
+        <select id="provider">
+          <option value="openrouter">OpenRouter</option>
+          <option value="openai">OpenAI</option>
+          <option value="anthropic">Anthropic</option>
+        </select>
+        <label for="apiKey">API key</label>
+        <input
+          id="apiKey"
+          type="password"
+          maxlength="512"
+          autocomplete="off"
+          spellcheck="false"
+          autocapitalize="off"
+        />
+        <p class="hint">
+          Kept only in this tab (sessionStorage) and sent over HTTPS with each request. Never stored or
+          logged.
+          <button type="button" class="link" id="forgetKey">Forget key</button>
+        </p>
+        <div class="label-row">
+          <label for="model">Model (tool calling)</label>
+          <button type="button" id="loadModels">Load models</button>
+        </div>
+        <input id="modelFilter" type="search" placeholder="Filter models…" aria-label="Filter models" />
+        <select id="model">
+          <option value="">Load the models first</option>
+        </select>
+        <p class="hint" id="modelHint"></p>
+
+        <h2 class="spaced">2 · What to test</h2>
+        <form id="form" novalidate>
+          <label for="targetUrl">Website URL</label>
+          <input
+            id="targetUrl"
+            type="url"
+            required
+            maxlength="2048"
+            spellcheck="false"
+            placeholder="https://your-app.example.com/"
+          />
+          <label for="prompt">What should be tested?</label>
+          <textarea
+            id="prompt"
+            required
+            minlength="10"
+            maxlength="2000"
+            placeholder="e.g. Test the login form: empty submit, invalid e-mail, wrong password; check the error messages."
+          ></textarea>
+          <p class="hint">
+            <span id="promptCount">0</span>/2000 · markup, scripts, commands and secrets are rejected.
+          </p>
+          <div class="examples">
+            <button
+              type="button"
+              data-example="Explore the home page and main navigation. Verify every main menu link opens a page without errors."
+            >
+              Navigation
+            </button>
+            <button
+              type="button"
+              data-example="Find the main form on the site. Test required-field validation, invalid input (bad e-mail, too long text) and a valid submission with fake test data."
+            >
+              Form validation
+            </button>
+            <button
+              type="button"
+              data-example="Test the login page: empty submit, wrong password, and check error messages are clear. Do not create real accounts."
+            >
+              Login negatives
+            </button>
+          </div>
+          <label>Output</label>
+          <div class="row">
+            <label
+              ><input type="radio" name="mode" value="generate" checked /> Playwright tests + report</label
+            >
+            <label><input type="radio" name="mode" value="explore" /> Report only</label>
+          </div>
+          <div class="row">
+            <label for="maxSteps" class="strong">Max steps</label>
+            <input id="maxSteps" type="number" min="3" max="25" value="20" />
+          </div>
+          <p class="hint">
+            Each run is limited to about 4 minutes. Tests are generated, not executed – run them locally.
+          </p>
+          <div class="actions">
+            <button class="primary" id="start" type="submit">Start</button>
+            <button id="cancel" type="button" disabled>Cancel</button>
+          </div>
+          <p class="err" id="formError" role="alert"></p>
+        </form>
+      </section>
+
+      <section>
+        <h2>Run</h2>
+        <div id="summary"><span class="empty">No run yet.</span></div>
+        <ul id="timeline"></ul>
+        <div class="label-row spaced">
+          <h2>Generated tests</h2>
+          <button type="button" class="primary" id="downloadZip" disabled>Download project (.zip)</button>
+        </div>
+        <ul id="files">
+          <li class="empty">Test files appear here.</li>
+        </ul>
+        <div class="label-row spaced">
+          <h2>Report</h2>
+          <button type="button" id="downloadReport" disabled>Download report.md</button>
+        </div>
+        <div id="report" class="empty">The report appears here when the run finishes.</div>
+      </section>
+    </main>
+    <footer class="hint">
+      Generated tests are drafts – review them before use. Do not test websites without permission.
+    </footer>
+  </body>
+</html>
