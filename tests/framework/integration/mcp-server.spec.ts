@@ -34,6 +34,46 @@ const EXPECTED_TOOLS = [
 
 const auditLog = path.join(mkdtempSync(path.join(tmpdir(), 'mcp-audit-')), 'audit.log');
 
+/**
+ * The suite owns its own demo-app instance on a free port, so it neither depends on whatever listens on :4000
+ * nor on a developer's .env. The MCP SDK passes only a minimal environment (PATH, …) to STDIO servers, so the
+ * demo app's URL and its built-in demo users (see demo-app/store.ts – public demo values, not secrets) are
+ * handed to the server explicitly. Without them the server fails in CI with "Missing credentials for role".
+ */
+const DEMO_PORT = 4300 + (process.pid % 300);
+const DEMO_URL = `http://localhost:${DEMO_PORT}`;
+const DEMO_APP_ENV: Record<string, string> = {
+  BASE_URL: DEMO_URL,
+  API_BASE_URL: `${DEMO_URL}/api`,
+  // Nested test runs (run_* tools) reuse this instance instead of starting one on the same port.
+  PW_REUSE_SERVER: 'true',
+  APP_ADMIN_USERNAME: 'admin@demo.local',
+  APP_ADMIN_PASSWORD: 'Admin#12345',
+  APP_VIEWER_USERNAME: 'viewer@demo.local',
+  APP_VIEWER_PASSWORD: 'Viewer#12345',
+  API_CLIENT_ID: 'demo-client',
+  API_CLIENT_SECRET: 'demo-client-secret',
+};
+
+async function startDemoApp(): Promise<ChildProcess> {
+  const app = spawn(process.execPath, ['--import', 'tsx', 'demo-app/server.ts'], {
+    cwd: paths.root,
+    env: { ...process.env, DEMO_APP_PORT: String(DEMO_PORT) },
+    stdio: 'ignore',
+    detached: process.platform !== 'win32',
+  });
+  await waitUntil(
+    () =>
+      fetch(`${DEMO_URL}/api/health`).then(
+        (r) => r.ok,
+        () => false,
+      ),
+    Boolean,
+    { timeoutMs: 30_000, description: 'demo app start' },
+  );
+  return app;
+}
+
 /** Server started from source through tsx, exactly like `npm run mcp:server:dev`. */
 const stdioConfig = (env: Record<string, string> = {}) =>
   parseServerConfig({
@@ -41,7 +81,7 @@ const stdioConfig = (env: Record<string, string> = {}) =>
     transport: 'stdio',
     command: process.execPath,
     args: ['--import', 'tsx', 'src/mcp/server/index.ts'],
-    env: { TEST_ENV: 'local', MCP_AUDIT_LOG: auditLog, LLM_PROVIDER: 'none', ...env },
+    env: { TEST_ENV: 'local', MCP_AUDIT_LOG: auditLog, LLM_PROVIDER: 'none', ...DEMO_APP_ENV, ...env },
     connectTimeoutMs: 60_000,
     requestTimeoutMs: 300_000,
   });
@@ -49,12 +89,17 @@ const stdioConfig = (env: Record<string, string> = {}) =>
 test.describe('custom MCP server over STDIO', () => {
   test.describe.configure({ mode: 'default', timeout: 300_000 });
   const client = new McpClient(stdioConfig());
+  let demoApp: ChildProcess | undefined;
 
   test.beforeAll(async () => {
-    test.setTimeout(90_000);
+    test.setTimeout(120_000);
+    demoApp = await startDemoApp();
     await client.connect();
   });
-  test.afterAll(() => client.close());
+  test.afterAll(async () => {
+    await client.close();
+    if (demoApp) killTree(demoApp);
+  });
 
   test('discovers all tools, resources and prompts', async () => {
     expect(client.serverInfo?.name).toBe('enterprise-automation-framework');
