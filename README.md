@@ -20,14 +20,35 @@ Requires Node.js 22.13+. See [docs/setup.md](docs/setup.md).
 
 ## Prompt-driven testing (Test Console)
 
+A standalone local web app: enter a website URL and a plain-language prompt, and an LLM tests the site in a real
+browser through the official Playwright MCP, streaming every step with screenshots.
+
 ```bash
-npm run console   # http://localhost:4100 – enter a URL and a prompt, press "Start testing"
+npm run console   # → http://localhost:4100
 ```
 
-An LLM (OpenRouter, OpenAI, Anthropic or local Ollama – chosen in the UI under ⚙ Model settings, with the model list
-loaded live from the provider and the API key stored AES-256-GCM encrypted) tests any website through the official
-Playwright MCP, streams each step with screenshots, and writes a report – or generates Playwright tests into
-`generated-tests/` for review and runs them. See [docs/test-console.md](docs/test-console.md).
+1. **⚙ Model settings** (opens automatically on first start)
+   - **Provider** dropdown – OpenRouter, OpenAI, Anthropic, Ollama (local).
+   - **API key** – password field; verified with the provider before saving, afterwards shown only as `••••1a2b`.
+   - **Model** dropdown – loaded live from the provider, only models that support tool calling, with a filter box.
+   - **Verify & save** stores provider, model and key **AES-256-GCM encrypted** in `.secrets/llm-settings.enc.json`;
+     the master key lives outside the project in `~/.playwright-test-console/master.key`. Until you save,
+     `LLM_*` from `.env` is used as a fallback (the header shows `(.env)` instead of 🔒).
+2. **Website URL** + **What should be tested?** → **Start testing**.
+3. Choose a mode:
+   - **Explore & report** – the AI tests the site live and writes a Markdown report.
+   - **Generate & run tests** – Playwright tests are written to `generated-tests/console/<run-id>/` for review and
+     executed; HTML results are linked in the UI.
+
+**Guard rails:** URL validation with SSRF protection (private/metadata addresses blocked, optional host allowlist),
+prompt sanitisation (markup, scripts, shell commands, prompt-injection phrases and off-topic requests are rejected
+before anything reaches the model), a Playwright-testing-only system prompt with refusal, a restricted browser tool
+set locked to the target origin, validation of generated test code, secret redaction and audit logging. The server
+binds to `127.0.0.1` and rejects foreign Host/Origin headers.
+
+Optional settings (`.env`): `CONSOLE_PORT`, `CONSOLE_ALLOWED_HOSTS`, `CONSOLE_RUN_TIMEOUT_MS`,
+`CONSOLE_ALLOW_PRIVATE_NETWORK`, `CONSOLE_SECRETS_FILE`, `CONSOLE_MASTER_KEY_FILE`, `CONSOLE_MASTER_KEY`
+(passphrase for containers/CI). Details: [docs/test-console.md](docs/test-console.md).
 
 ## What is inside
 
@@ -41,6 +62,7 @@ Playwright MCP, streams each step with screenshots, and writes a report – or g
 | Observability | Pino structured logs with secret/PII redaction, failure diagnostics, HTML/Allure/JSON/JUnit + `summary.json`                                              |
 | MCP           | 19 tools, 6 resources, 5 prompts; allowlists, timeouts, audit log, STDIO + authenticated Streamable HTTP; typed client                                    |
 | AI            | 4 providers behind one interface, validated structured output, traceable test plans, failure classification                                               |
+| Test Console  | Prompt → live browser testing via Playwright MCP; tool calling on all 4 providers; encrypted model settings; input guard rails                            |
 | CI/CD         | GitHub Actions (SHA-pinned, matrix + shards, merged reports), Azure DevOps (variable groups, JUnit publishing), Docker                                    |
 | Demo app      | Local UI + REST API (sessions, bearer/basic/OAuth2, RBAC, validation, idempotency) for deterministic CI                                                   |
 
@@ -57,7 +79,11 @@ Playwright MCP, streams each step with screenshots, and writes a report – or g
 | `npm run test:headed` / `test:debug`                                                    | Debugging                                             |
 | `npm run test:framework`                                                                | Framework unit + integration tests                    |
 | `npm run report` / `report:allure`                                                      | Open HTML report / generate Allure                    |
+| `npm run report:allure:open`                                                            | Open the generated Allure report                      |
 | `npm run typecheck` / `lint` / `format:check` / `build`                                 | Quality gates                                         |
+| `npm run lint:fix` / `format`                                                           | Auto-fix lint and formatting                          |
+| `npm run audit:deps`                                                                    | Dependency vulnerability audit                        |
+| `npm run demo:start`                                                                    | Start the bundled demo app manually                   |
 | `npm run validate`                                                                      | Everything CI runs, locally                           |
 | `npm run mcp:server` / `mcp:server:dev` / `mcp:http` / `mcp:playwright` / `mcp:example` | MCP                                                   |
 | `npm run ai:check`                                                                      | LLM connectivity check                                |
@@ -84,6 +110,10 @@ src/utils/               logger, sanitizer, retry, wait, random, date, file, pat
 src/ai/                  providers, services, prompts, schemas
 src/mcp/server/          MCP server: tools, resources, prompts, security, stdio + http entry points
 src/mcp/client/          MCP client, config, connection manager
+src/agent/               Test Console agent loop, browser/draft tools, system prompt
+src/console/             Test Console server, UI, input guard, model settings, encrypted secret store
+generated-tests/         AI-generated test drafts for review (git-ignored)
+.secrets/                encrypted Test Console settings (git-ignored)
 tests/ui|api|e2e|integration/   specifications
 tests/fixtures/          test entry point, tags, auth setup project
 tests/framework/         unit + integration tests of the framework itself
@@ -115,7 +145,13 @@ No vendor LLM SDKs (providers use `fetch`) and no Axios (APIRequestContext is th
   "Extending to a new application" in [architecture](docs/architecture.md)).
 - Live LLM connectivity was verified only against mocked endpoints in this repository; run `npm run ai:check`
   with real credentials or a local Ollama to verify a provider.
-- The AI provider interface is text-only (no streaming, tool calling or images); screenshots are referenced by path.
+- The deterministic AI services use a text-only interface (no streaming or images); tool calling is used only by the
+  Test Console. Its model must support tool calling (the model dropdown lists only such models; for Ollama, pick a
+  tool-capable model such as `qwen3`).
+- The Test Console runs one test run at a time and is meant for local use (bound to `127.0.0.1`). Prompt guard rails
+  reduce, but cannot fully eliminate, prompt-injection risk – review generated tests before adopting them.
+- On Windows the console's master key file is protected by user-profile permissions (no DPAPI); use a
+  BitLocker-encrypted drive or `CONSOLE_MASTER_KEY` for stronger protection.
 - MCP execution runs one test run at a time per server and only predefined suites/filters.
 - The custom MCP HTTP transport is stateless and token-authenticated; for multi-user production use put it behind
   TLS and an identity-aware proxy (OAuth is supported by the SDK but not wired in).
@@ -128,5 +164,7 @@ No vendor LLM SDKs (providers use `fetch`) and no Axios (APIRequestContext is th
 - Contract testing against the OpenAPI spec (request/response validation for every call).
 - OAuth-based authorisation for the MCP HTTP server and per-user audit identities.
 - Flaky-test history (trend across runs) feeding failure analysis.
-- Streaming/tool-use support in LLM providers; vision models for screenshot-based diagnosis.
+- Streaming in LLM providers; vision models for screenshot-based diagnosis.
+- Test Console: OS keychain (Windows DPAPI / macOS Keychain) for the master key, run history persistence,
+  one-click promotion of reviewed drafts into `tests/`.
 - Test-data service backed by an API/DB seeding layer for complex domain objects.
