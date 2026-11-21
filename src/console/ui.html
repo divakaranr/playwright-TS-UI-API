@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Test Console</title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root {
+        --bg: #f6f7f9;
+        --panel: #ffffff;
+        --text: #1d2330;
+        --muted: #5d6676;
+        --border: #dde1e7;
+        --accent: #2f5fd0;
+        --accent-text: #ffffff;
+        --ok: #1d7a46;
+        --bad: #b42318;
+        --warn: #a15c07;
+        --code: #f0f2f5;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #12151b;
+          --panel: #1a1f27;
+          --text: #e6e9ef;
+          --muted: #9aa3b2;
+          --border: #2c3340;
+          --accent: #6d95ff;
+          --accent-text: #0d1117;
+          --ok: #4cc38a;
+          --bad: #ff7b72;
+          --warn: #e3b341;
+          --code: #232a35;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      body {
+        margin: 0;
+        font:
+          14px/1.5 system-ui,
+          -apple-system,
+          Segoe UI,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+        flex-wrap: wrap;
+      }
+      header h1 {
+        font-size: 17px;
+        margin: 0;
+      }
+      .pill {
+        font-size: 12px;
+        padding: 2px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        color: var(--muted);
+      }
+      .pill.ok {
+        color: var(--ok);
+        border-color: var(--ok);
+      }
+      .pill.warn {
+        color: var(--warn);
+        border-color: var(--warn);
+      }
+      .pill.bad {
+        color: var(--bad);
+        border-color: var(--bad);
+      }
+      main {
+        display: grid;
+        grid-template-columns: minmax(300px, 400px) 1fr;
+        gap: 16px;
+        padding: 16px 20px;
+        max-width: 1500px;
+        margin: 0 auto;
+      }
+      @media (max-width: 900px) {
+        main {
+          grid-template-columns: 1fr;
+          padding: 12px 16px;
+        }
+      }
+      section {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px;
+        min-width: 0;
+      }
+      h2 {
+        font-size: 14px;
+        margin: 0 0 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+      }
+      label {
+        display: block;
+        font-weight: 600;
+        margin: 12px 0 4px;
+      }
+      input[type='url'],
+      input[type='number'],
+      textarea {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--text);
+        font: inherit;
+      }
+      textarea {
+        min-height: 150px;
+        resize: vertical;
+      }
+      .row {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-top: 8px;
+      }
+      .row label {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        font-weight: 400;
+        margin: 0;
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 4px 0 0;
+      }
+      button {
+        font: inherit;
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--panel);
+        color: var(--text);
+        cursor: pointer;
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-text);
+        font-weight: 600;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      .examples button {
+        font-size: 12px;
+        padding: 3px 8px;
+        margin: 4px 4px 0 0;
+      }
+      #timeline {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        max-height: 60vh;
+        overflow: auto;
+      }
+      #timeline li {
+        border-left: 3px solid var(--border);
+        padding: 4px 0 8px 12px;
+        margin-left: 4px;
+        overflow-wrap: anywhere;
+      }
+      #timeline li.tool {
+        border-color: var(--accent);
+      }
+      #timeline li.ok {
+        border-color: var(--ok);
+      }
+      #timeline li.fail {
+        border-color: var(--bad);
+      }
+      #timeline li.note {
+        border-color: var(--warn);
+        color: var(--muted);
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      pre {
+        background: var(--code);
+        padding: 8px;
+        border-radius: 6px;
+        overflow: auto;
+        max-height: 240px;
+        white-space: pre-wrap;
+        margin: 4px 0 0;
+        font-size: 12px;
+      }
+      details summary {
+        cursor: pointer;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .shot img {
+        max-width: 360px;
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        margin-top: 4px;
+        display: block;
+      }
+      #summary {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+      #summary .pill {
+        font-size: 13px;
+      }
+      #report table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 8px 0;
+        display: block;
+        overflow-x: auto;
+      }
+      #report th,
+      #report td {
+        border: 1px solid var(--border);
+        padding: 4px 8px;
+        text-align: left;
+        vertical-align: top;
+      }
+      #report code {
+        background: var(--code);
+        padding: 0 4px;
+        border-radius: 4px;
+      }
+      #files a {
+        color: var(--accent);
+      }
+      #files li {
+        margin: 2px 0;
+      }
+      .empty {
+        color: var(--muted);
+      }
+      #runs li {
+        margin: 2px 0;
+      }
+      #runs a {
+        color: var(--accent);
+        cursor: pointer;
+      }
+      .header-right {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .header-right button {
+        padding: 4px 12px;
+      }
+      select,
+      input[type='password'],
+      input[type='search'] {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--text);
+        font: inherit;
+      }
+      dialog {
+        width: min(560px, calc(100vw - 32px));
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--panel);
+        color: var(--text);
+        padding: 20px;
+      }
+      dialog::backdrop {
+        background: rgb(0 0 0 / 45%);
+      }
+      dialog h2 {
+        margin-bottom: 4px;
+      }
+      .label-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 8px;
+      }
+      .label-row button {
+        font-size: 12px;
+        padding: 3px 10px;
+      }
+      #sFilter {
+        margin-bottom: 6px;
+      }
+      .err {
+        color: var(--bad);
+      }
+      button.danger {
+        margin-left: auto;
+        color: var(--bad);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Test Console</h1>
+      <div class="header-right">
+        <span id="llm" class="pill">checking model…</span>
+        <button id="openSettings" type="button">⚙ Model settings</button>
+      </div>
+    </header>
+    <dialog id="settings" aria-labelledby="settingsTitle">
+      <form id="settingsForm" novalidate>
+        <h2 id="settingsTitle">Model settings</h2>
+        <p class="hint">
+          The model drives the browser through Playwright tools, so only models with tool calling are listed.
+        </p>
+        <label for="sProvider">Provider</label>
+        <select id="sProvider" required></select>
+        <label for="sKey">API key</label>
+        <input
+          id="sKey"
+          type="password"
+          maxlength="512"
+          autocomplete="off"
+          spellcheck="false"
+          autocapitalize="off"
+        />
+        <p class="hint" id="sKeyHint"></p>
+        <div class="label-row">
+          <label for="sModel">Model</label>
+          <button type="button" id="sLoad">Load models</button>
+        </div>
+        <input id="sFilter" type="search" placeholder="Filter models…" aria-label="Filter models" />
+        <select id="sModel" required>
+          <option value="">Load the models first</option>
+        </select>
+        <p class="hint" id="sModelHint"></p>
+        <p class="hint" id="sStorage"></p>
+        <p class="hint err" id="sError" role="alert"></p>
+        <div class="actions">
+          <button class="primary" id="sSave" type="submit">Verify &amp; save</button>
+          <button type="button" id="sClose">Close</button>
+          <button type="button" id="sForget" class="danger">Forget saved settings</button>
+        </div>
+      </form>
+    </dialog>
+    <main>
+      <section>
+        <h2>New run</h2>
+        <form id="form">
+          <label for="targetUrl">Website URL</label>
+          <input
+            id="targetUrl"
+            type="url"
+            required
+            maxlength="2048"
+            autocomplete="url"
+            spellcheck="false"
+            pattern="https?:\/\/[A-Za-z0-9](?:[A-Za-z0-9.\-]*[A-Za-z0-9])?(?::[0-9]{1,5})?(?:[\/?#]\S*)?"
+            title="http(s) URL such as https://example.com/path – no spaces or user:password@"
+            placeholder="https://your-app.example.com/"
+          />
+          <label for="prompt">What should be tested?</label>
+          <textarea
+            id="prompt"
+            required
+            minlength="10"
+            maxlength="2000"
+            spellcheck="true"
+            placeholder="e.g. Test the login form with valid and invalid input and check the main navigation."
+          ></textarea>
+          <p class="hint">
+            <span id="promptCount">0</span>/2000 · describe what to test on this site only. Markup, scripts,
+            commands and secrets are rejected.
+          </p>
+          <div class="examples">
+            <button
+              type="button"
+              data-example="Explore the home page and main navigation. Verify every main menu link opens a page without errors."
+            >
+              Navigation check
+            </button>
+            <button
+              type="button"
+              data-example="Find the main form on the site. Test required-field validation, invalid input (bad e-mail, too long text) and a valid submission with fake test data."
+            >
+              Form validation
+            </button>
+            <button
+              type="button"
+              data-example="Test the login page: empty submit, wrong password, and check error messages are clear. Do not create real accounts."
+            >
+              Login negatives
+            </button>
+          </div>
+          <label>Mode</label>
+          <div class="row">
+            <label><input type="radio" name="mode" value="explore" checked /> Explore &amp; report</label>
+            <label><input type="radio" name="mode" value="generate" /> Generate &amp; run tests</label>
+          </div>
+          <p class="hint" id="modeHint">The AI tests the site live in a browser and writes a report.</p>
+          <div class="row">
+            <label for="maxSteps" style="font-weight: 600">Max steps</label>
+            <input id="maxSteps" type="number" min="3" max="80" value="30" style="width: 80px" />
+            <label><input id="headed" type="checkbox" /> Show browser</label>
+            <label id="runTestsWrap" hidden
+              ><input id="runTests" type="checkbox" checked /> Run generated tests</label
+            >
+          </div>
+          <div class="actions">
+            <button class="primary" id="start" type="submit">Start testing</button>
+            <button id="cancel" type="button" disabled>Cancel</button>
+          </div>
+          <p class="hint" id="formError" style="color: var(--bad)"></p>
+        </form>
+        <h2 style="margin-top: 20px">Recent runs</h2>
+        <ul id="runs" class="hint"></ul>
+      </section>
+      <section>
+        <h2>Run</h2>
+        <div id="summary">
+          <span class="empty">No run yet. Enter a URL and a prompt, then press “Start testing”.</span>
+        </div>
+        <ul id="timeline"></ul>
+        <h2 style="margin-top: 16px">Files</h2>
+        <ul id="files">
+          <li class="empty">Generated tests, test reports and the run report appear here.</li>
+        </ul>
+        <h2 style="margin-top: 16px">Report</h2>
+        <div id="report" class="empty">The final report appears here when the run finishes.</div>
+      </section>
+    </main>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const esc = (s) =>
+        String(s).replace(
+          /[&<>"']/g,
+          (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+        );
+      let source, currentRun, counters;
+      try {
+        $('targetUrl').value = localStorage.getItem('console.url') || '';
+      } catch {}
+
+      function markdown(md) {
+        const lines = esc(md).split('\n');
+        let html = '';
+        let i = 0;
+        let list = false;
+        const inline = (t) =>
+          t.replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        while (i < lines.length) {
+          const l = lines[i];
+          if (/^\s*\|.*\|\s*$/.test(l)) {
+            if (list) {
+              html += '</ul>';
+              list = false;
+            }
+            const rows = [];
+            while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) rows.push(lines[i++]);
+            html +=
+              '<table>' +
+              rows
+                .filter((r) => !/^\s*\|[\s:|-]+\|\s*$/.test(r))
+                .map(
+                  (r, n) =>
+                    '<tr>' +
+                    r
+                      .trim()
+                      .slice(1, -1)
+                      .split('|')
+                      .map((c) => (n ? '<td>' : '<th>') + inline(c.trim()) + (n ? '</td>' : '</th>'))
+                      .join('') +
+                    '</tr>',
+                )
+                .join('') +
+              '</table>';
+            continue;
+          }
+          const h = /^(#{1,4})\s+(.*)$/.exec(l);
+          const li = /^\s*[-*]\s+(.*)$/.exec(l);
+          if (li) {
+            if (!list) {
+              html += '<ul>';
+              list = true;
+            }
+            html += '<li>' + inline(li[1]) + '</li>';
+          } else {
+            if (list) {
+              html += '</ul>';
+              list = false;
+            }
+            if (h) html += `<h${h[1].length + 2}>${inline(h[2])}</h${h[1].length + 2}>`;
+            else if (l.trim()) html += '<p>' + inline(l) + '</p>';
+          }
+          i++;
+        }
+        return html + (list ? '</ul>' : '');
+      }
+
+      function add(cls, html) {
+        const li = document.createElement('li');
+        li.className = cls;
+        li.innerHTML = html;
+        $('timeline').appendChild(li);
+        li.scrollIntoView({ block: 'nearest' });
+        return li;
+      }
+      function setSummary(status) {
+        const c = counters;
+        const cls =
+          status === 'completed' ? 'ok' : status === 'running' ? '' : status === 'refused' ? 'warn' : 'bad';
+        $('summary').innerHTML =
+          `<span class="pill ${cls}">${esc(status)}</span><span class="pill">steps ${c.steps}</span><span class="pill">tool calls ${c.tools}</span><span class="pill">screenshots ${c.shots}</span><span class="pill">tokens ${c.tokens}</span>`;
+      }
+      function addFile(e) {
+        if ($('files').querySelector('.empty')) $('files').innerHTML = '';
+        const li = document.createElement('li');
+        li.innerHTML = `${esc(e.kind)}: <a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.name)}</a>`;
+        $('files').appendChild(li);
+      }
+
+      function handle(e) {
+        switch (e.type) {
+          case 'status':
+            add('note', esc(e.message));
+            break;
+          case 'thinking':
+            add('note', '💭 ' + esc(e.text));
+            break;
+          case 'tool_call':
+            counters.tools++;
+            counters.steps = Math.max(counters.steps, e.step);
+            add(
+              'tool',
+              `<span class="meta">step ${e.step}</span> <strong>${esc(e.name)}</strong><details><summary>arguments</summary><pre>${esc(JSON.stringify(e.args, null, 2))}</pre></details>`,
+            );
+            break;
+          case 'tool_result':
+            add(
+              e.ok ? 'ok' : 'fail',
+              `<span class="meta">${e.ok ? '✓' : '✗'} ${esc(e.name)}</span><details><summary>output</summary><pre>${esc(e.text)}</pre></details>`,
+            );
+            break;
+          case 'screenshot':
+            counters.shots++;
+            add(
+              'shot',
+              `<span class="meta">📷 ${esc(e.caption)}</span><a href="${esc(e.url)}" target="_blank" rel="noopener"><img src="${esc(e.url)}" alt="screenshot ${esc(e.caption)}" loading="lazy" /></a>`,
+            );
+            break;
+          case 'file':
+            addFile(e);
+            break;
+          case 'test_run':
+            add(
+              e.status === 'passed' ? 'ok' : 'fail',
+              `🧪 <strong>${esc(e.fileName)}</strong>: ${esc(e.status)} — ${esc(
+                Object.entries(e.totals)
+                  .map(([k, v]) => k + ' ' + v)
+                  .join(', '),
+              )}`,
+            );
+            if (e.reportUrl)
+              addFile({ kind: 'html-report', name: e.fileName + ' results', url: e.reportUrl });
+            break;
+          case 'usage':
+            counters.tokens = e.inputTokens + e.outputTokens;
+            break;
+          case 'report':
+            $('report').classList.remove('empty');
+            $('report').innerHTML = markdown(e.markdown);
+            break;
+          case 'error':
+            add('fail', '⚠ ' + esc(e.message));
+            break;
+          case 'done':
+            setSummary(e.status);
+            finish();
+            return;
+        }
+        setSummary('running');
+      }
+
+      function finish() {
+        if (source) source.close();
+        source = undefined;
+        $('start').disabled = false;
+        $('cancel').disabled = true;
+        loadRuns();
+      }
+
+      function watch(id) {
+        currentRun = id;
+        counters = { steps: 0, tools: 0, shots: 0, tokens: 0 };
+        $('timeline').innerHTML = '';
+        $('files').innerHTML = '<li class="empty">Nothing yet.</li>';
+        $('report').className = 'empty';
+        $('report').textContent = 'The final report appears here when the run finishes.';
+        setSummary('running');
+        source = new EventSource(`/api/runs/${encodeURIComponent(id)}/events`);
+        source.onmessage = (m) => handle(JSON.parse(m.data));
+        source.onerror = () => {
+          if (source && source.readyState === EventSource.CLOSED) finish();
+        };
+      }
+
+      function showErrors(errors) {
+        $('formError').innerHTML = errors.map((e) => '• ' + esc(e)).join('<br>');
+      }
+      function clientCheck(url, prompt) {
+        const errors = [];
+        if (!$('targetUrl').checkValidity() || /\s|@/.test(url.replace(/^https?:\/\//, '').split(/[/?#]/)[0]))
+          errors.push(
+            'Website URL: use an http(s) URL such as https://example.com/ (no spaces or credentials)',
+          );
+        if (prompt.length < 10 || prompt.length > 2000) errors.push('Prompt: 10–2000 characters');
+        if (/<\s*\/?\s*[a-z]+[\s>]|javascript\s*:|\bon[a-z]{3,20}\s*=/i.test(prompt))
+          errors.push('Prompt: HTML/script content is not allowed');
+        return errors;
+      }
+      $('prompt').addEventListener('input', () => ($('promptCount').textContent = $('prompt').value.length));
+
+      $('form').addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        $('formError').textContent = '';
+        if (settings && !settings.ready) {
+          showErrors(['Model: choose a provider, model and API key in Model settings first']);
+          openSettings();
+          return;
+        }
+        // Quick client-side feedback only – the server performs the authoritative validation.
+        const quick = clientCheck($('targetUrl').value.trim(), $('prompt').value.trim());
+        if (quick.length) {
+          showErrors(quick);
+          return;
+        }
+        const mode = document.querySelector('input[name=mode]:checked').value;
+        const body = {
+          targetUrl: $('targetUrl').value.trim(),
+          prompt: $('prompt').value.trim(),
+          mode,
+          maxSteps: Number($('maxSteps').value),
+          headed: $('headed').checked,
+          runTests: $('runTests').checked,
+        };
+        try {
+          localStorage.setItem('console.url', body.targetUrl);
+        } catch {}
+        $('start').disabled = true;
+        const res = await fetch('/api/runs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showErrors(data.errors || [data.error]);
+          $('start').disabled = false;
+          return;
+        }
+        $('cancel').disabled = false;
+        watch(data.id);
+        loadRuns();
+      });
+      $('cancel').addEventListener(
+        'click',
+        () => currentRun && fetch(`/api/runs/${encodeURIComponent(currentRun)}/cancel`, { method: 'POST' }),
+      );
+      document.querySelectorAll('[data-example]').forEach((b) =>
+        b.addEventListener('click', () => {
+          $('prompt').value = b.dataset.example;
+        }),
+      );
+      document.querySelectorAll('input[name=mode]').forEach((r) =>
+        r.addEventListener('change', () => {
+          const gen = r.value === 'generate' && r.checked;
+          $('runTestsWrap').hidden = !gen;
+          $('modeHint').textContent = gen
+            ? 'The AI explores the site, writes Playwright tests into generated-tests/ for your review, and runs them.'
+            : 'The AI tests the site live in a browser and writes a report.';
+        }),
+      );
+
+      async function loadRuns() {
+        const runs = await (await fetch('/api/runs')).json();
+        $('runs').innerHTML = runs.length
+          ? runs
+              .map(
+                (r) =>
+                  `<li><a data-run="${esc(r.id)}">${esc(r.startedAt.slice(11, 19))}</a> ${esc(r.mode)} · ${esc(r.status)} · ${esc(new URL(r.targetUrl).host)}</li>`,
+              )
+              .join('')
+          : '<li>None yet.</li>';
+        $('runs')
+          .querySelectorAll('[data-run]')
+          .forEach((a) => a.addEventListener('click', () => watch(a.dataset.run)));
+      }
+      // ---- Model settings (provider / model / API key – stored encrypted on the server) ----
+      let settings;
+      const modelsCache = {};
+      const KEY_PATTERN = /^[\x21-\x7E]{8,512}$/;
+      const sendJson = async (url, method, body) => {
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          ...(body ? { body: JSON.stringify(body) } : {}),
+        });
+        return { ok: res.ok, data: await res.json() };
+      };
+      const providerInfo = (id) => settings.providers.find((p) => p.id === id);
+      const setSettingsError = (errors) =>
+        ($('sError').innerHTML = (errors || []).map((e) => '• ' + esc(e)).join('<br>'));
+
+      function renderPill() {
+        const el = $('llm');
+        const label = settings.provider ? providerInfo(settings.provider).label : '';
+        el.textContent = settings.ready
+          ? `${label} · ${settings.model}${settings.source === 'saved' ? ' 🔒' : ' (.env)'}`
+          : settings.message;
+        el.title = settings.ready
+          ? settings.source === 'saved'
+            ? 'Saved encrypted in the Test Console'
+            : 'Taken from LLM_* in .env – save it in Model settings to store it encrypted'
+          : '';
+        el.className = 'pill ' + (settings.ready ? 'ok' : 'bad');
+      }
+      async function loadSettings() {
+        settings = await (await fetch('/api/settings')).json();
+        renderPill();
+        return settings;
+      }
+
+      function renderKeyField() {
+        const p = providerInfo($('sProvider').value);
+        const key = $('sKey');
+        key.value = '';
+        key.disabled = !p.requiresApiKey;
+        key.placeholder = !p.requiresApiKey
+          ? 'Not needed for local Ollama'
+          : p.apiKey.hint
+            ? `${p.apiKey.source === 'saved' ? 'Saved' : 'From .env'} (${p.apiKey.hint}) – leave empty to keep`
+            : `Paste your ${p.label} API key`;
+        $('sKeyHint').textContent = !p.requiresApiKey
+          ? 'Uses the Ollama server configured for this machine.'
+          : p.apiKey.source === 'env'
+            ? 'Currently read from .env. Enter it here once to store it encrypted, then remove LLM_API_KEY from .env.'
+            : 'Never shown again after saving – it is stored encrypted on this computer.';
+      }
+
+      function renderModels() {
+        const provider = $('sProvider').value;
+        const models = modelsCache[provider];
+        const select = $('sModel');
+        const previous = select.value || (settings.provider === provider ? settings.model : '');
+        if (!models) {
+          select.innerHTML = '<option value="">Load the models first</option>';
+          $('sModelHint').textContent = '';
+          return;
+        }
+        const filter = $('sFilter').value.trim().toLowerCase();
+        const shown = models.filter(
+          (m) =>
+            !filter || m.id.toLowerCase().includes(filter) || (m.name || '').toLowerCase().includes(filter),
+        );
+        select.innerHTML =
+          '<option value="">Choose a model…</option>' +
+          shown
+            .map(
+              (m) =>
+                `<option value="${esc(m.id)}">${esc(m.id)}${m.name ? ' — ' + esc(m.name) : ''}${
+                  m.contextLength ? ' · ' + Math.round(m.contextLength / 1000) + 'k ctx' : ''
+                }</option>`,
+            )
+            .join('');
+        if (shown.some((m) => m.id === previous)) select.value = previous;
+        $('sModelHint').textContent = `${shown.length} of ${models.length} models with tool calling`;
+      }
+
+      async function loadModels() {
+        const provider = $('sProvider').value;
+        const apiKey = $('sKey').value.trim();
+        if (apiKey && !KEY_PATTERN.test(apiKey)) {
+          setSettingsError(['API key: 8–512 printable characters without spaces']);
+          return;
+        }
+        setSettingsError([]);
+        $('sLoad').disabled = true;
+        $('sModelHint').textContent = 'Loading models…';
+        try {
+          const { ok, data } = await sendJson('/api/settings/models', 'POST', {
+            provider,
+            ...(apiKey ? { apiKey } : {}),
+          });
+          if ($('sProvider').value !== provider) return;
+          if (!ok) {
+            setSettingsError(data.errors || [data.error]);
+            $('sModelHint').textContent = '';
+            return;
+          }
+          modelsCache[provider] = data.models;
+          renderModels();
+        } finally {
+          $('sLoad').disabled = false;
+        }
+      }
+      // Load automatically when no key needs to be typed first.
+      const canListWithoutTyping = (p) => !p.requiresApiKey || p.apiKey.hint || p.id === 'openrouter';
+
+      function onProviderChange() {
+        $('sFilter').value = '';
+        setSettingsError([]);
+        renderKeyField();
+        renderModels();
+        const p = providerInfo($('sProvider').value);
+        if (!modelsCache[p.id] && canListWithoutTyping(p)) loadModels();
+      }
+
+      async function openSettings() {
+        await loadSettings();
+        $('sProvider').innerHTML = settings.providers
+          .map((p) => `<option value="${esc(p.id)}">${esc(p.label)}</option>`)
+          .join('');
+        $('sProvider').value = settings.provider || 'openrouter';
+        $('sStorage').textContent = settings.encrypted
+          ? '🔒 Saved settings are encrypted (AES-256-GCM); the master key is kept outside the project.'
+          : '⚠ No secret store configured – settings are kept in memory only.';
+        onProviderChange();
+        if (settings.warning) setSettingsError([settings.warning]);
+        if (!$('settings').open) $('settings').showModal();
+      }
+
+      $('openSettings').addEventListener('click', openSettings);
+      $('sClose').addEventListener('click', () => $('settings').close());
+      $('sProvider').addEventListener('change', onProviderChange);
+      $('sFilter').addEventListener('input', renderModels);
+      $('sLoad').addEventListener('click', loadModels);
+      $('sKey').addEventListener('change', () => {
+        if (KEY_PATTERN.test($('sKey').value.trim())) loadModels();
+      });
+      $('settingsForm').addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const provider = $('sProvider').value;
+        const model = $('sModel').value;
+        const apiKey = $('sKey').value.trim();
+        const errors = [];
+        if (apiKey && !KEY_PATTERN.test(apiKey))
+          errors.push('API key: 8–512 printable characters without spaces');
+        if (!apiKey && providerInfo(provider).requiresApiKey && !providerInfo(provider).apiKey.hint)
+          errors.push('API key: required for ' + providerInfo(provider).label);
+        if (!model) errors.push('Model: choose a model from the list');
+        if (errors.length) return setSettingsError(errors);
+        setSettingsError([]);
+        $('sSave').disabled = true;
+        $('sSave').textContent = 'Verifying…';
+        try {
+          const { ok, data } = await sendJson('/api/settings', 'PUT', {
+            provider,
+            model,
+            ...(apiKey ? { apiKey } : {}),
+          });
+          if (!ok) return setSettingsError(data.errors || [data.error]);
+          settings = data;
+          $('sKey').value = '';
+          renderPill();
+          $('settings').close();
+        } finally {
+          $('sSave').disabled = false;
+          $('sSave').textContent = 'Verify & save';
+        }
+      });
+      $('sForget').addEventListener('click', async () => {
+        if (!confirm('Delete the saved provider, model and all saved API keys?')) return;
+        const { ok, data } = await sendJson('/api/settings', 'DELETE');
+        if (!ok) return setSettingsError(data.errors || [data.error]);
+        Object.keys(modelsCache).forEach((k) => delete modelsCache[k]);
+        settings = data;
+        renderPill();
+        await openSettings();
+      });
+
+      (async () => {
+        const status = await (await fetch('/api/status')).json();
+        await loadSettings();
+        if (!settings.ready) openSettings();
+        if (status.activeRun) {
+          $('start').disabled = true;
+          $('cancel').disabled = false;
+          watch(status.activeRun);
+        }
+        loadRuns();
+      })();
+    </script>
+  </body>
+</html>

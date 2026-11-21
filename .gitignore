@@ -1,0 +1,33 @@
+# Dependencies & build output
+node_modules/
+dist/
+
+# Secrets & local configuration (never commit)
+.env
+.env.*
+!.env.example
+mcp/mcp-config.json
+
+# Authentication state (contains session cookies / tokens)
+.auth/
+
+# Test artifacts & reports
+test-results/
+playwright-report/
+blob-report/
+reports/
+logs/
+generated-tests/
+test-data/generated/
+playwright/.cache/
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+*.log
+
+# Official Playwright MCP session output
+.playwright-mcp/
+
+# Test Console encrypted settings (ciphertext; master key lives in ~/.playwright-test-console)
+.secrets/

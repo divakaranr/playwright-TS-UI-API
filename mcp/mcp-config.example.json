@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@0.0.85", "--isolated"]
+    },
+    "automation-framework": {
+      "command": "node",
+      "args": ["./dist/mcp/server/index.js"],
+      "env": {
+        "TEST_ENV": "local",
+        "MCP_ALLOWED_ENVIRONMENTS": "local,dev,qa"
+      }
+    }
+  }
+}

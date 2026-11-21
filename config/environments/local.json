@@ -1,0 +1,27 @@
+{
+  "name": "local",
+  "description": "Bundled deterministic demo application (CI default)",
+  "baseUrl": "http://localhost:4000",
+  "apiBaseUrl": "http://localhost:4000/api",
+  "readOnly": false,
+  "allowedWriteOperations": [],
+  "roles": ["admin", "viewer"],
+  "auth": {
+    "loginPath": "/auth/login",
+    "refreshPath": "/auth/refresh",
+    "tokenPath": "/oauth/token"
+  },
+  "timeouts": {
+    "testMs": 60000,
+    "expectMs": 10000,
+    "actionMs": 15000,
+    "navigationMs": 30000,
+    "apiMs": 30000
+  },
+  "api": {
+    "responseTimeThresholdMs": 1500
+  },
+  "features": {
+    "startDemoApp": true
+  }
+}

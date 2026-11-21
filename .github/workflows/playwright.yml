@@ -1,0 +1,243 @@
+name: Playwright Automation
+
+# Execution strategy (docs/test-execution-guidelines.md):
+#   pull_request      -> quality gates + API smoke + critical UI smoke (chromium)
+#   push main/develop -> quality gates + API & UI regression (chromium)
+#   schedule (daily)  -> full cross-browser regression, sharded
+#   workflow_dispatch -> choose suite / environment / browsers
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Test scope
+        type: choice
+        options: [smoke, regression, full]
+        default: smoke
+      environment:
+        description: Target environment (non-local requires environment secrets)
+        type: choice
+        options: [local, dev, qa, uat, staging]
+        default: local
+      browsers:
+        description: Browser projects (JSON array)
+        type: string
+        default: '["chromium"]'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: playwright-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CI: 'true'
+  NODE_VERSION: '22'
+  TEST_ENV: ${{ inputs.environment || 'local' }}
+  SKIP_TYPECHECK: 'true' # type checking is its own gate below
+  LOG_LEVEL: info
+  FORCE_COLOR: '0'
+
+jobs:
+  plan:
+    name: Plan execution
+    runs-on: ubuntu-latest
+    outputs:
+      grep: ${{ steps.plan.outputs.grep }}
+      browsers: ${{ steps.plan.outputs.browsers }}
+      shards: ${{ steps.plan.outputs.shards }}
+      shard_total: ${{ steps.plan.outputs.shard_total }}
+    steps:
+      - id: plan
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_SUITE: ${{ inputs.suite }}
+          INPUT_BROWSERS: ${{ inputs.browsers }}
+        run: |
+          suite="${INPUT_SUITE:-}"
+          if [ -z "$suite" ]; then
+            case "$EVENT" in
+              pull_request) suite=smoke ;;
+              schedule) suite=full ;;
+              *) suite=regression ;;
+            esac
+          fi
+          case "$suite" in
+            smoke) grep='@smoke|@critical'; browsers='["chromium"]'; shards='[1]' ;;
+            regression) grep='@regression|@smoke|@critical'; browsers='["chromium"]'; shards='[1,2]' ;;
+            full) grep='.'; browsers='["chromium","firefox","webkit"]'; shards='[1,2]' ;;
+          esac
+          [ -n "${INPUT_BROWSERS:-}" ] && browsers="$INPUT_BROWSERS"
+          echo "suite=$suite grep=$grep browsers=$browsers shards=$shards"
+          {
+            echo "grep=$grep"
+            echo "browsers=$browsers"
+            echo "shards=$shards"
+            echo "shard_total=$(echo "$shards" | tr -cd ',' | wc -c | awk '{print $1+1}')"
+          } >> "$GITHUB_OUTPUT"
+
+  quality:
+    name: Quality gates & framework tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Dependency vulnerability check
+        run: npm audit --audit-level=high
+      - name: Type check
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Format check
+        run: npm run format:check
+      - name: Build (MCP server / dist)
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Framework unit & integration tests
+        run: npx playwright test --project=framework-unit --project=framework-integration
+        env:
+          TEST_ENV: local
+      - name: Upload framework test reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: framework-test-report
+          path: reports/
+          retention-days: 14
+
+  api:
+    name: API tests
+    needs: [plan, quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.environment || 'local' }}
+    env:
+      APP_ADMIN_USERNAME: ${{ secrets.APP_ADMIN_USERNAME || 'admin@demo.local' }}
+      APP_ADMIN_PASSWORD: ${{ secrets.APP_ADMIN_PASSWORD || 'Admin#12345' }}
+      APP_VIEWER_USERNAME: ${{ secrets.APP_VIEWER_USERNAME || 'viewer@demo.local' }}
+      APP_VIEWER_PASSWORD: ${{ secrets.APP_VIEWER_PASSWORD || 'Viewer#12345' }}
+      API_CLIENT_ID: ${{ secrets.API_CLIENT_ID || 'demo-client' }}
+      API_CLIENT_SECRET: ${{ secrets.API_CLIENT_SECRET || 'demo-client-secret' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: API tests
+        run: npx playwright test --project=api --grep "${{ needs.plan.outputs.grep }}"
+      - name: Upload API reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: api-report
+          path: |
+            reports/html/
+            reports/allure-results/
+            reports/junit.xml
+            reports/summary.json
+          retention-days: 14
+      - name: Upload API failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: api-test-results
+          path: test-results/
+          retention-days: 7
+
+  ui:
+    name: UI ${{ matrix.browser }} (${{ matrix.shard }}/${{ needs.plan.outputs.shard_total }})
+    needs: [plan, quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: ${{ inputs.environment || 'local' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: ${{ fromJSON(needs.plan.outputs.browsers) }}
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    env:
+      PW_BLOB_REPORT: 'true'
+      APP_ADMIN_USERNAME: ${{ secrets.APP_ADMIN_USERNAME || 'admin@demo.local' }}
+      APP_ADMIN_PASSWORD: ${{ secrets.APP_ADMIN_PASSWORD || 'Admin#12345' }}
+      APP_VIEWER_USERNAME: ${{ secrets.APP_VIEWER_USERNAME || 'viewer@demo.local' }}
+      APP_VIEWER_PASSWORD: ${{ secrets.APP_VIEWER_PASSWORD || 'Viewer#12345' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Install ${{ matrix.browser }}
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: UI, hybrid and integration tests
+        run: >
+          npx playwright test tests/ui tests/e2e tests/integration
+          --project=${{ matrix.browser }}
+          --grep "${{ needs.plan.outputs.grep }}"
+          --shard=${{ matrix.shard }}/${{ needs.plan.outputs.shard_total }}
+      - name: Upload blob report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: blob-${{ matrix.browser }}-${{ matrix.shard }}
+          path: reports/blob/
+          retention-days: 3
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: allure-${{ matrix.browser }}-${{ matrix.shard }}
+          path: reports/allure-results/
+          retention-days: 14
+      - name: Upload traces, screenshots and videos
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-test-results-${{ matrix.browser }}-${{ matrix.shard }}
+          path: test-results/
+          retention-days: 7
+
+  report:
+    name: Merge UI reports
+    if: always() && needs.ui.result != 'skipped'
+    needs: [ui]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Download blob reports
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: blob-*
+          path: reports/blob
+          merge-multiple: true
+      - name: Merge
+        run: npm run reports:merge
+      - name: Upload merged HTML report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: reports/merged/
+          retention-days: 14

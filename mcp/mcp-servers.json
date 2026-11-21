@@ -1,0 +1,28 @@
+{
+  "servers": [
+    {
+      "name": "automation-framework",
+      "transport": "stdio",
+      "command": "node",
+      "args": ["dist/mcp/server/index.js"],
+      "env": { "TEST_ENV": "qa" },
+      "connectTimeoutMs": 30000,
+      "requestTimeoutMs": 900000
+    },
+    {
+      "name": "playwright",
+      "transport": "stdio",
+      "command": "node",
+      "args": ["node_modules/@playwright/mcp/cli.js", "--headless", "--isolated"],
+      "connectTimeoutMs": 60000,
+      "requestTimeoutMs": 120000
+    },
+    {
+      "name": "automation-framework-http",
+      "transport": "http",
+      "enabled": false,
+      "url": "http://127.0.0.1:3333/mcp",
+      "headers": { "Authorization": "Bearer ${MCP_HTTP_TOKEN}" }
+    }
+  ]
+}

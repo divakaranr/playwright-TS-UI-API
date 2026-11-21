@@ -1,0 +1,27 @@
+{
+  "name": "qa",
+  "description": "QA environment (illustrative URLs - adapt to your application)",
+  "baseUrl": "https://demo-qa-app.azurewebsites.net",
+  "apiBaseUrl": "https://demo-qa-app.azurewebsites.net",
+  "readOnly": false,
+  "allowedWriteOperations": [],
+  "roles": ["admin", "viewer"],
+  "auth": {
+    "loginPath": "/auth/login",
+    "refreshPath": "/auth/refresh",
+    "tokenPath": "/oauth/token"
+  },
+  "timeouts": {
+    "testMs": 60000,
+    "expectMs": 10000,
+    "actionMs": 15000,
+    "navigationMs": 30000,
+    "apiMs": 30000
+  },
+  "api": {
+    "responseTimeThresholdMs": 2500
+  },
+  "features": {
+    "startDemoApp": false
+  }
+}
